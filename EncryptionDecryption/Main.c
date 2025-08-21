@@ -47,7 +47,6 @@ int WriteSignatureFile(const char* filename, const unsigned char* sigature, size
 	FILE* fp = fopen(filename, "wb");
 	if (!fp) return 0;
 	fwrite(sigature, 1, len, fp);
-	fputc('\0', fp);
 	fclose(fp);
 	return 1;
 }
@@ -212,19 +211,29 @@ int main(void)
 				printf("파일없음\n");
 				break;
 			}
-			size_t len = fread(buffer, 1, MAX_BUFF_SIZE, file);
+			size_t len = fread(buffer, 1, MAX_BUFF_SIZE-1, file);
 			fclose(file);
+			buffer[len] = '\0';
+			// 깊은 복사(내용복사)
 			char fileBuff[MAX_BUFF_SIZE];
 			memcpy_s(fileBuff, MAX_BUFF_SIZE, buffer, MAX_BUFF_SIZE);
 			// sig_파일이름 읽어
 			char sigFilename[MAX_FILE_NAME_SIZE] = "sig_";
 			strcat_s(sigFilename, MAX_FILE_NAME_SIZE, ctx.filename);
 			FILE* sigFile = fopen(sigFilename, "rb");
-			len = fread(buffer, 1, MAX_BUFF_SIZE, sigFile);
+			fread(buffer, 1, MAX_BUFF_SIZE, sigFile);
 			fclose(sigFile);
-			printf("%s\n", buffer);
+			unsigned char signature = *buffer;
+			printf("%s\n", fileBuff);
 			// 검증함수에 넣어(원본파일데이터, 크기, 키, 시그니처)
-			//VerifySignature()
+			if (VerifySignature(fileBuff, len, ctx.key, signature))
+			{
+				printf("검증 완료");
+			}
+			else
+			{
+				printf("검증 실패");
+			}
 			break;
 		case 6:
 			runnging = 0;
