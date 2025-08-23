@@ -14,7 +14,7 @@ typedef struct
 	CryptFunc cryptFunc;
 } Context;
 
-/* --- Inline XOR 암호화 1 --- */
+/* --- XOR 암호화 --- */
 void XorEncryptSimple(char* data, size_t len, const char* key)
 {
 	size_t keyLen = strlen(key);		// 시크릿 키
@@ -27,7 +27,7 @@ void XorEncryptSimple(char* data, size_t len, const char* key)
 int ReadFile(const char* filename, char* buffer, size_t maxLen, size_t* outLen)
 {
 	FILE* fp = fopen(filename, "rb");			// 파일 포인터
-	if (!fp) return 0;							// 없으면 종료
+	if (!fp) return 0;							// 파일 없으면 종료
 
 	size_t len = fread(buffer, 1, maxLen, fp);	// 버퍼에 저장
 	fclose(fp);									// 파일 닫기
@@ -95,7 +95,7 @@ int main(void)
 	Context ctx = { "", "secretkey", XorEncryptSimple };
 	char buffer[MAX_BUFF_SIZE]; // 입출력에 사용될 버퍼
 	size_t dataLen = 0; // 파일 크기
-	char encExtension[12] = { ".enc" };
+	char encExtension[] = { "enc_" };
 	unsigned char signature = 0;
 	int runnging = 1;
 
@@ -130,7 +130,7 @@ int main(void)
 				ctx.cryptFunc(buffer, dataLen, ctx.key);					// 암호화 -> buffer에 담기
 
 				char outFile[MAX_FILE_NAME_SIZE];											// 암호화된 파일 이름전용 버퍼
-				snprintf(outFile, sizeof(outFile), "%s.enc", ctx.filename);	// 버퍼 크기에 맞는 파일 이름작성
+				snprintf(outFile, sizeof(outFile), "enc_%s", ctx.filename);	// 버퍼 크기에 맞는 파일 이름작성
 
 				if (WriteFile(outFile, buffer, dataLen))					// 파일 생성
 				{
@@ -148,7 +148,7 @@ int main(void)
 			break;
 
 		case 3: // 복호화 + 파일 쓰기
-			printf("복호화할 파일명 입력 (*%s)", encExtension);
+			printf("복호화할 파일명 입력 (%s*)", encExtension);
 			fgets(ctx.filename, sizeof(ctx.filename), stdin);
 			ctx.filename[strcspn(ctx.filename, "\n")] = '\0';
 			if (!IsEncfile(ctx.filename, encExtension))
@@ -191,7 +191,7 @@ int main(void)
 				}
 				else
 				{
-					printf("시그니처 파일 생성 실패");
+					printf("시그니처 파일 생성 실패\n");
 				}
 			}
 			else
@@ -205,34 +205,41 @@ int main(void)
 			fgets(ctx.filename, sizeof(ctx.filename), stdin);
 			ctx.filename[strcspn(ctx.filename, "\n")] = '\0';
 			// 원본파일이름 읽어
-			FILE* file = fopen(ctx.filename, "rb");
-			if (!file)
-			{
-				printf("파일없음\n");
-				break;
-			}
-			size_t len = fread(buffer, 1, MAX_BUFF_SIZE-1, file);
-			fclose(file);
-			buffer[len] = '\0';
-			// 깊은 복사(내용복사)
+
 			char fileBuff[MAX_BUFF_SIZE];
-			memcpy_s(fileBuff, MAX_BUFF_SIZE, buffer, MAX_BUFF_SIZE);
-			// sig_파일이름 읽어
-			char sigFilename[MAX_FILE_NAME_SIZE] = "sig_";
-			strcat_s(sigFilename, MAX_FILE_NAME_SIZE, ctx.filename);
-			FILE* sigFile = fopen(sigFilename, "rb");
-			fread(buffer, 1, MAX_BUFF_SIZE, sigFile);
-			fclose(sigFile);
-			unsigned char signature = *buffer;
-			printf("%s\n", fileBuff);
-			// 검증함수에 넣어(원본파일데이터, 크기, 키, 시그니처)
-			if (VerifySignature(fileBuff, len, ctx.key, signature))
+			if (ReadFile(ctx.filename, buffer, MAX_BUFF_SIZE - 1, &dataLen))
 			{
-				printf("검증 완료");
+				// 깊은 복사(내용복사)
+				memcpy_s(fileBuff, MAX_BUFF_SIZE, buffer, MAX_BUFF_SIZE);
+
 			}
 			else
 			{
-				printf("검증 실패");
+				printf("파일 없음\n");
+				break;
+			}
+
+			// sig_파일이름 읽어
+			char sigFilename[MAX_FILE_NAME_SIZE] = { "sig_" };
+			size_t sigLen = 0;
+			strcat_s(sigFilename, MAX_FILE_NAME_SIZE, ctx.filename);
+			if (ReadFile(sigFilename, buffer, MAX_FILE_NAME_SIZE, &sigLen))
+			{
+				// 검증함수에 넣어(원본파일데이터, 크기, 키, 시그니처)
+				unsigned char signature = *buffer;
+				if (VerifySignature(fileBuff, dataLen, ctx.key, signature))
+				{
+					printf("검증 완료\n");
+				}
+				else
+				{
+					printf("검증 실패\n");
+				}
+
+			}
+			else
+			{
+				printf("sig_ 파일 없음\n");
 			}
 			break;
 		case 6:

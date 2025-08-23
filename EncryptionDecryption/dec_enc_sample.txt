@@ -1,0 +1,11 @@
+Project: File Encryption and Digital Signature Tool
+Author: Your Name
+Date: 2025-08-19
+
+This is a sample text file used to test the encryption and
+digital signature functionality implemented in the C language project.
+
+Please verify that the file content is not altered during encryption,
+decryption, and signature processes.
+
+Thank you!
